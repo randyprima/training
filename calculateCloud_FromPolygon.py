@@ -7,6 +7,8 @@ Created on Fri Jul 10 01:25:20 2020
 
 from __future__ import division
 import os, math, sys
+import rasterio
+from rasterio.windows import Window
 # import getpass
 import psycopg2
 from psycopg2 import sql
