@@ -5,17 +5,14 @@ Created on Fri Jul 10 01:25:20 2020
 @author: randy
 """
 
-from __future__ import division
-import os, math, sys
-import rasterio
-from rasterio.windows import Window
-# import getpass
+import os, math
 import psycopg2
 from psycopg2 import sql
-# import tqdm
 from osgeo import ogr, gdal, osr
 import numpy as np
-# from multiprocessing import Pool
+from multiprocessing import Pool
+import argparse
+
 
 def postgres_test(hostname,db_name, username, pascode):
     try:
@@ -24,30 +21,14 @@ def postgres_test(hostname,db_name, username, pascode):
         return True
     except:
         return False
-
-def multi_run_wrapper2(args):
+    
+def multi_run_wrapper(args):
    return ingest(*args)
 
-def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,result_raster,smetadata,incl,incx,date,geometric,spectral,rmse,rndval,geotransform):
+def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl,incx,date,geometric,spectral,rmse,rndval,geotransform):
     conn = psycopg2.connect(host=hostname, database=db_name, user=username, password=pascode)
     c = conn.cursor()
-    lr_latitude=round(ul_latitude-tilesize,rndval)
-    lr_longitude=round(ul_longitude+tilesize,rndval)
-            
-    originX = geotransform[0]
-    originY = geotransform[3]
-    pixelWidth = geotransform[1]
-    pixelHeight = geotransform[5]
     
-    # Specify offset and rows and columns to read
-    xoff = int((ul_longitude - originX)/pixelWidth)
-    yoff = int((originY - ul_latitude)/pixelWidth)
-    xcount = int(round((lr_longitude - ul_longitude)/pixelWidth))
-    ycount = int(round(abs((ul_latitude - lr_latitude)/pixelWidth)))
-    
-    with rasterio.open(result_raster) as src:
-        dataraster = src.read(1, window=Window(xoff, yoff, xcount, ycount))
-
     # nodata = (dataraster==1).sum()
     clear = (dataraster==1).sum()
     cloud = (dataraster==101).sum()
@@ -55,7 +36,7 @@ def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_sta
     if pix_count != 0:
         ndata = round((((clear+cloud)/pix_count)*100),2)
         ncloud = round(cloud/pix_count*100,2)
-        c.execute(sql.SQL("INSERT INTO {} (sceneid, ullon_scene, ullat_scene, tile_size, ul_latitude, ul_longitude, ndata, pixdata, ncloud, metadata, inc_along, inc_across, img_date, geometric, spectral, ce90) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(db_table)), (short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,ndata,pix_count,ncloud,metadata,incl,incx,date,geometric,spectral,rmse))
+        c.execute(sql.SQL("INSERT INTO {} (sceneid, ullon_scene, ullat_scene, tile_size, ul_latitude, ul_longitude, ndata, pixdata, ncloud, metadata, inc_along, inc_across, img_date, geometric, spectral, ce90) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(db_table)), (short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,ndata,pix_count,ncloud,smetadata,incl,incx,date,geometric,spectral,rmse))
         conn.commit()
         conn.close()
 
@@ -68,8 +49,11 @@ def main (hostname, db_name, username, metadata, db_table, pascode, dirtemp, til
         short_name = pmetadata[1]+'_'+pmetadata[2]+'_'+pmetadata[3]
         
         # baca database
+        conn = psycopg2.connect(host=hostname, database=db_name, user=username, password=pascode)
+        c = conn.cursor()
         c.execute(sql.SQL("SELECT * FROM {} WHERE sceneid =%s").format(sql.Identifier(db_table)), (short_name,))
         hs = c.fetchall()
+        conn.close()
         if hs == []:
         
             incl=[];incx=[];ce90=[]
@@ -163,38 +147,69 @@ def main (hostname, db_name, username, metadata, db_table, pascode, dirtemp, til
                 if os.path.isfile(result_raster):
                     
                     yy_start = round((env[2]//tilesize)*tilesize,rndval)+tilesize
-                    yy_end = round((math.ceil(env[3]//tilesize))*tilesize,rndval)+2*tilesize
+                    yy_end = round((math.ceil(env[3]//tilesize))*tilesize,rndval)+tilesize
                     xx_start = round((env[0]//tilesize)*tilesize,rndval)
                     xx_end = round((env[1]//tilesize)*tilesize,rndval)+tilesize
                     
                     yy = np.arange(yy_start,yy_end,tilesize)
                     xx = np.arange(xx_start,xx_end,tilesize)
-                    
+                    inps = []
                     for y in yy:
                         for x in xx:
                             ul_longitude=round(x,rndval)
-                            ul_latitude=round(y,rndval)                            
+                            ul_latitude=round(y,rndval)  
+                            lr_latitude=round(ul_latitude-tilesize,rndval)
+                            lr_longitude=round(ul_longitude+tilesize,rndval)
+                            
+                            # Specify offset and rows and columns to read
+                            xoff = int((ul_longitude - originX)/pixelWidth)
+                            yoff = int((originY - ul_latitude)/pixelWidth)
+                            xcount = int(round((lr_longitude - ul_longitude)/pixelWidth))
+                            ycount = int(round(abs((ul_latitude - lr_latitude)/pixelWidth)))
+                        
+                            dataraster = result_array[yoff:yoff+ycount,xoff:xoff+xcount]
+                            
                             if short_name[:4] == 'PHR1':
-                                ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,result_raster,smetadata,incl[1],incx[1],date,geometric,spectral,rmse,rndval,geotransform)
+                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl[1],incx[1],date,geometric,spectral,rmse,rndval,geotransform),)
                             elif short_name[:4] == 'SPOT':
-                                ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,result_raster,smetadata,incl[4],incx[4],date,geometric,spectral,rmse,rndval,geotransform)
-                    conn.close()
+                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl[4],incx[4],date,geometric,spectral,rmse,rndval,geotransform),)
+                    # conn.close()
+                    pool = Pool()
+                    results = pool.map(multi_run_wrapper,inps)
+                    pool.close()
+                    
                     
     else:
         print('file %s tidak lengkap' %(smetadata))
         pass
 
 
-
 if __name__ == '__main__':
-    db_table = sys.argv[1] #'testPleiades' #sys.argv[4] #'test_db'
-    hostname = '192.168.40.34' #sys.argv[5]
-    db_name = 'test' #sys.argv[6]
-    username = 'administrator' #sys.argv[7]
-    pascode = 'teklahta@8' #getpass.getpass()
-    dirtemp = sys.argv[2] #r'D:\temp\Pleiades'
-    metadata = sys.argv[3] #r"D:\temp\Pleiades\LPN_PHR1B_PMS_201812050255065_ORT\DIM_PHR1B_PMS_201812050255065_ORT_PHR1B_20181205_0348231mis19470fhzz_1.XML"
-    tilesize = 0.1
+    
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='''Cloud Cover assessment tilebased v1''')
+    parser.add_argument("--tbl", help="Table name in database")
+    parser.add_argument("--hos", help="Database hostname or IP address (ex:192.168.1.5)")
+    parser.add_argument("--dbn", help="Database name")
+    parser.add_argument("--usr", help="Username to access database")
+    parser.add_argument("--psw", help="Password to access database")
+    parser.add_argument("--dir", help="Temporary directory")
+    parser.add_argument("--met", help="Metadata file of SPOT 6-7 or Pleiades")
+    parser.add_argument("--tzs", help="Tile size in arcdegree (default = 0.1)", default = 0.1)
+    
+    arg = parser.parse_args()
+    
+
+    db_table = arg.tbl 
+    hostname = arg.hos 
+    db_name = arg.dbn 
+    username = arg.usr 
+    pascode = arg.psw 
+    dirtemp = arg.dir
+    if not os.path.isdir(dirtemp): 
+        os.mkdir(dirtemp) #r'D:\Training_CSRT\try' #r'D:\temp\Pleiades'
+    metadata = arg.met #r'D:\Training_CSRT\files\LPN_SP7_PMS_201905210242252_ORT\IMG_SPOT7_PMS_001_A\DIM_SPOT7_PMS_201905210242252_ORT_SPOT7_20190521_0256071661vuuw32jm3_1.XML' #r"D:\temp\Pleiades\LPN_PHR1B_PMS_201812050255065_ORT\DIM_PHR1B_PMS_201812050255065_ORT_PHR1B_20181205_0348231mis19470fhzz_1.XML"
+    tilesize = float(arg.tzs) #0.01
     rndval=len(str(tilesize).split('.')[-1]) #jumlah angka atau digit di belelakang koma atau titik (nilai desimal)
     
     
