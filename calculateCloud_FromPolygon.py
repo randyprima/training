@@ -4,7 +4,7 @@ Created on Fri Jul 10 01:25:20 2020
 
 @author: randy
 """
-
+from __future__ import division
 import os, math
 import psycopg2
 from psycopg2 import sql
@@ -25,7 +25,7 @@ def postgres_test(hostname,db_name, username, pascode):
 def multi_run_wrapper(args):
    return ingest(*args)
 
-def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl,incx,date,geometric,spectral,rmse,rndval,geotransform):
+def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,metadata,incl,incx,date,geometric,spectral,rmse,rndval,geotransform):
     conn = psycopg2.connect(host=hostname, database=db_name, user=username, password=pascode)
     c = conn.cursor()
     
@@ -36,7 +36,7 @@ def ingest(hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_sta
     if pix_count != 0:
         ndata = round((((clear+cloud)/pix_count)*100),2)
         ncloud = round(cloud/pix_count*100,2)
-        c.execute(sql.SQL("INSERT INTO {} (sceneid, ullon_scene, ullat_scene, tile_size, ul_latitude, ul_longitude, ndata, pixdata, ncloud, metadata, inc_along, inc_across, img_date, geometric, spectral, ce90) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(db_table)), (short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,ndata,pix_count,ncloud,smetadata,incl,incx,date,geometric,spectral,rmse))
+        c.execute(sql.SQL("INSERT INTO {} (sceneid, ullon_scene, ullat_scene, tile_size, ul_latitude, ul_longitude, ndata, pixdata, ncloud, metadata, inc_along, inc_across, img_date, geometric, spectral, ce90) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(db_table)), (short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,ndata,pix_count,ncloud,metadata,incl,incx,date,geometric,spectral,rmse))
         conn.commit()
         conn.close()
 
@@ -170,9 +170,9 @@ def main (hostname, db_name, username, metadata, db_table, pascode, dirtemp, til
                             dataraster = result_array[yoff:yoff+ycount,xoff:xoff+xcount]
                             
                             if short_name[:4] == 'PHR1':
-                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl[1],incx[1],date,geometric,spectral,rmse,rndval,geotransform),)
+                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,metadata,incl[1],incx[1],date,geometric,spectral,rmse,rndval,geotransform),)
                             elif short_name[:4] == 'SPOT':
-                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,smetadata,incl[4],incx[4],date,geometric,spectral,rmse,rndval,geotransform),)
+                                inps.append((hostname,db_name,username,db_table,pascode,short_name,yy_start,xx_start,tilesize,ul_latitude,ul_longitude,dataraster,metadata,incl[4],incx[4],date,geometric,spectral,rmse,rndval,geotransform),)
                     # conn.close()
                     pool = Pool()
                     results = pool.map(multi_run_wrapper,inps)
