@@ -9,7 +9,7 @@ import os, sys
 # import getpass
 import psycopg2
 from psycopg2 import sql
-# import tqdm
+import tqdm
 from osgeo import ogr
 from multiprocessing import Pool
 
@@ -160,14 +160,12 @@ def main(hostname,db_name,username,db_table,pascode,dest_dir):
     outDataSource = None
     
     pool = Pool(4)
-    pool.map(multi_run_wrapper, ins)
-    pool.close()
-    # for _ in tqdm.tqdm(pool.imap_unordered(multi_run_wrapper, ins), total=len(ins)):
-        # pass
+    for _ in tqdm.tqdm(pool.imap_unordered(multi_run_wrapper, ins), total=len(ins)):
+        pass
 
 if __name__ == '__main__':
     db_table = sys.argv[1] #'testSPOT' #sys.argv[4] #'test_db'
-    hostname = '192.168.40.34' #sys.argv[5]
+    hostname = 'localhost' #sys.argv[5]
     db_name = 'test' #sys.argv[6]
     username = 'administrator' #sys.argv[7]
     pascode = 'teklahta@8' #getpass.getpass()
