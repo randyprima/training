@@ -31,32 +31,33 @@ def create_pms(source_data,dst_name,ul_longitude,ul_latitude,lr_longitude,lr_lat
         
 
 def create_shp(tilesize,rndval,outLayer,ul_latitude,ul_longitude,file_pms,src_data,haze,cloud,inc_angle_along,inc_angle_across,date,geometric,spectral,ce90):
-	
-	lr_latitude=round(ul_latitude-tilesize, rndval)
-	lr_longitude=round(ul_longitude+tilesize, rndval)
-	
-	feature = ogr.Feature(outLayer.GetLayerDefn())
-	feature.SetField('Tile_name', os.path.basename(file_pms))
-	feature.SetField('Haze', str(haze))
-	feature.SetField('Cloud', str(cloud))
-	feature.SetField('Src_data', src_data)
-	feature.SetField('date', str(date))
-	feature.SetField('inc_along', str(inc_angle_along))
-	feature.SetField('inc_across', str(inc_angle_across))
-	feature.SetField('geometric', geometric)
-	feature.SetField('spectral', spectral)
-	feature.SetField('ce90', ce90)
-	
-	# Create test polygon
-	ring = ogr.Geometry(ogr.wkbLinearRing)
-	ring.AddPoint(ul_longitude, ul_latitude)
-	ring.AddPoint(lr_longitude, ul_latitude)
-	ring.AddPoint(lr_longitude, lr_latitude)
-	ring.AddPoint(ul_longitude, lr_latitude)
-	poly = ogr.Geometry(ogr.wkbPolygon)
-	poly.AddGeometry(ring)
-	feature.SetGeometry(poly)
-	return feature;
+    
+    lr_latitude=round(ul_latitude-tilesize, rndval)
+    lr_longitude=round(ul_longitude+tilesize, rndval)
+    
+    feature = ogr.Feature(outLayer.GetLayerDefn())
+    feature.SetField('Tile_name', os.path.basename(file_pms))
+    feature.SetField('Haze', str(haze))
+    feature.SetField('Cloud', str(cloud))
+    feature.SetField('Src_data', src_data)
+    feature.SetField('date', str(date))
+    feature.SetField('inc_along', str(inc_angle_along))
+    feature.SetField('inc_across', str(inc_angle_across))
+    feature.SetField('geometric', geometric)
+    feature.SetField('spectral', spectral)
+    feature.SetField('ce90', ce90)
+    
+    # Create test polygon
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    ring.AddPoint(ul_longitude, ul_latitude)
+    ring.AddPoint(lr_longitude, ul_latitude)
+    ring.AddPoint(lr_longitude, lr_latitude)
+    ring.AddPoint(ul_longitude, lr_latitude)
+    ring.AddPoint(ul_longitude, ul_latitude)
+    poly = ogr.Geometry(ogr.wkbPolygon)
+    poly.AddGeometry(ring)
+    feature.SetGeometry(poly)
+    return feature;
 
 def main(hostname,db_name,username,db_table,pascode,dest_dir):
     file_shp=dest_dir+os.sep+"mosaik-tile_index.shp"
@@ -93,7 +94,7 @@ def main(hostname,db_name,username,db_table,pascode,dest_dir):
     outLayer.CreateField(field_name6)
     outLayer.CreateField(field_name7)
     outLayer.CreateField(field_name8)
-    outLayer.CreateField(field_name9)	
+    outLayer.CreateField(field_name9)    
     outLayer.CreateField(field_name10)
     conn = psycopg2.connect(host=hostname, database=db_name, user=username, password=pascode)
     c = conn.cursor()
@@ -143,8 +144,12 @@ def main(hostname,db_name,username,db_table,pascode,dest_dir):
             spectral=i[14]
             ce90=i[15]
             src_data=os.path.basename(source_data)
-            
-            dst_file=name[:7]+"_PMS_"+new_lat+"_"+new_lon+".tif"
+            pmetadata = src_data.split('_')
+            short_name = pmetadata[1]+'_'+pmetadata[2]+'_'+pmetadata[3]
+            if short_name[:4] == 'PHR1':
+                dst_file="PLEIADES1A-B_PMS_"+new_lat+"_"+new_lon+".tif"
+            elif short_name[:4] == 'SPOT':
+                dst_file="SPOT6-7_PMS_"+new_lat+"_"+new_lon+".tif"
             dst_name=dest_dir+os.sep+dst_file
             file_pms=dst_name
             
@@ -159,7 +164,7 @@ def main(hostname,db_name,username,db_table,pascode,dest_dir):
     conn.close()            
     outDataSource = None
     
-    pool = Pool(4)
+    pool = Pool(16)
     for _ in tqdm.tqdm(pool.imap_unordered(multi_run_wrapper, ins), total=len(ins)):
         pass
 
