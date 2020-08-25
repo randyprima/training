@@ -73,7 +73,7 @@ def main (hostname, db_name, username, metadata, db_table, pascode, dirtemp, til
             		if baris.find("<ACCURACY_CE90")==0:
             			ce90.append(baris.split(">")[1].split("<")[0])
             	if len(ce90)>0:
-            		rmse=str(round(float(ce90[0])*30.87,2))
+            		rmse=ce90
             		if rmse=='0' or rmse=='0.0':
             			rmse='N/A'
             	else:
