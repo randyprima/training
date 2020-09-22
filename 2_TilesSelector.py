@@ -5,7 +5,7 @@ Created on Fri Jul 10 01:25:20 2020
 @author: randy
 """
 from __future__ import division
-import os, sys
+import os, sys, subprocess, subprocess
 # import getpass
 import psycopg2
 from psycopg2 import sql
@@ -27,8 +27,8 @@ def multi_run_wrapper(args):
 
 def create_pms(source_data,dst_name,ul_longitude,ul_latitude,lr_longitude,lr_latitude):
     if not os.path.isfile(dst_name):
-        os.popen("gdal_translate -projwin "+str(ul_longitude)+" "+str(ul_latitude)+" "+str(lr_longitude)+" "+str(lr_latitude)+" "+source_data+" "+dst_name)
-        
+        conv =	subprocess.Popen(['gdal_translate', '-projwin', 'ul_longitude', 'ul_latitude', 'lr_longitude', 'lr_latitude', '-co', 'NUM_THREADS=ALL_CPUS', '-co' ,'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', fullres, ql], stdout=subprocess.PIPE)
+        (output, err) = conv.communicate()
 
 def create_shp(tilesize,rndval,outLayer,ul_latitude,ul_longitude,file_pms,src_data,haze,cloud,inc_angle_along,inc_angle_across,date,geometric,spectral,ce90):
     
@@ -98,7 +98,7 @@ def main(hostname,db_name,username,db_table,pascode,dest_dir):
     outLayer.CreateField(field_name10)
     conn = psycopg2.connect(host=hostname, database=db_name, user=username, password=pascode)
     c = conn.cursor()
-    c.execute(sql.SQL("SELECT * FROM public.{} WHERE ndata = 100 and ncloud <= 10 ORDER BY img_date DESC;").format(sql.Identifier(db_table)))
+    c.execute(sql.SQL("SELECT * FROM public.{} WHERE ndata = 100 ORDER BY img_date DESC;").format(sql.Identifier(db_table)))
     hs = c.fetchall()
     file_pmss=[];
     ins=[]
