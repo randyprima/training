@@ -27,7 +27,7 @@ def multi_run_wrapper(args):
 
 def create_pms(source_data,dst_name,ul_longitude,ul_latitude,lr_longitude,lr_latitude):
     if not os.path.isfile(dst_name):
-        conv =	subprocess.Popen(['gdal_translate', '-projwin', 'ul_longitude', 'ul_latitude', 'lr_longitude', 'lr_latitude', '-co', 'NUM_THREADS=ALL_CPUS', '-co' ,'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', fullres, ql], stdout=subprocess.PIPE)
+        conv =	subprocess.Popen(['gdal_translate', '-projwin', 'ul_longitude', 'ul_latitude', 'lr_longitude', 'lr_latitude', '-co', 'NUM_THREADS=ALL_CPUS', '-co' ,'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', source_data, dst_name], stdout=subprocess.PIPE)
         (output, err) = conv.communicate()
 
 def create_shp(tilesize,rndval,outLayer,ul_latitude,ul_longitude,file_pms,src_data,haze,cloud,inc_angle_along,inc_angle_across,date,geometric,spectral,ce90):
